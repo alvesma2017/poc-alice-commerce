@@ -1,0 +1,67 @@
+[
+  {
+    "id": "grisham-opostos",
+    "title": "Em lados opostos: Duas famílias, um confronto no tribunal",
+    "author": "John Grisham",
+    "genre": "Suspense Jurídico",
+    "release_date": "27/12/2023",
+    "format": "Ebook",
+    "language": "Português",
+    "rating": 4.6,
+    "price": 49.9,
+    "stock": 999,
+    "image": "img/grisham-opostos.jpg"
+  },
+  {
+    "id": "daniel-silva-retrato",
+    "title": "Retrato de uma mulher desconhecida",
+    "author": "Daniel Silva",
+    "genre": "Suspense / Espionagem",
+    "release_date": "23/12/2023",
+    "format": "Ebook",
+    "language": "Português",
+    "rating": 4.4,
+    "price": 39.9,
+    "stock": 999,
+    "image": "img/daniel-silva-retrato.jpg"
+  },
+  {
+    "id": "gamache-3",
+    "title": "O mais cruel dos meses (Inspetor Gamache Livro 3)",
+    "author": "Louise Penny",
+    "genre": "Mistério Policial",
+    "release_date": "10/01/2023",
+    "format": "Ebook",
+    "language": "Português",
+    "rating": 4.7,
+    "price": 34.9,
+    "stock": 999,
+    "image": "img/gamache-3.jpg"
+  },
+  {
+    "id": "gamache-2",
+    "title": "Graça fatal (Inspetor Gamache Livro 2)",
+    "author": "Louise Penny",
+    "genre": "Mistério Policial",
+    "release_date": "06/01/2023",
+    "format": "Ebook",
+    "language": "Português",
+    "rating": 4.6,
+    "price": 34.9,
+    "stock": 999,
+    "image": "img/gamache-2.jpg"
+  },
+  {
+    "id": "gamache-1",
+    "title": "Natureza-morta (Inspetor Gamache Livro 1)",
+    "author": "Louise Penny",
+    "genre": "Mistério Policial",
+    "release_date": "04/01/2023",
+    "format": "Ebook",
+    "language": "Português",
+    "rating": 4.5,
+    "price": 29.9,
+    "stock": 999,
+    "image": "img/gamache-1.jpg"
+  }
+]

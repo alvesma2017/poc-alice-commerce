@@ -17,7 +17,10 @@ def init_state():
     if "cart" not in st.session_state:
         st.session_state.cart = {}
     if "page" not in st.session_state:
-        st.session_state.page = 1
+        st.session_state.page = 1  # paginação da lista
+    # rota da aplicação (para fallback inline do checkout)
+    if "route" not in st.session_state:
+        st.session_state.route = "Loja"
 
 @st.cache_data
 def load_books() -> List[Dict]:
@@ -45,13 +48,23 @@ def remove_from_cart(book_id: str):
         if cart[book_id]["qty"] <= 0:
             del cart[book_id]
 
+def _go_checkout():
+    """Tenta abrir pages/checkout.py; se não existir, usa fallback inline."""
+    try:
+        st.switch_page("pages/checkout.py")
+    except Exception:
+        st.session_state.route = "Checkout"
+        st.rerun()
+
 def cart_summary(books_map: Dict[str, Dict]):
     total = 0.0
     q = 0
     for book_id, item in st.session_state.cart.items():
         total += item["qty"] * item["price"]
         q += item["qty"]
+
     st.markdown(f"**Itens no carrinho:** {q}  \n**Total:** {money(total)}")
+
     if st.session_state.cart:
         for book_id, item in st.session_state.cart.items():
             b = books_map.get(book_id, {})
@@ -65,8 +78,11 @@ def cart_summary(books_map: Dict[str, Dict]):
                 if st.button("Remover", key=f"rm_{book_id}"):
                     remove_from_cart(book_id)
                     st.rerun()
+
+        # --- botão Finalizar compra logo abaixo do resumo do carrinho ---
         st.divider()
-        st.button("Finalizar compra", type="primary")
+        if st.button("Finalizar compra", type="primary", use_container_width=True):
+            _go_checkout()
     else:
         st.caption("Seu carrinho está vazio.")
 
@@ -109,10 +125,66 @@ def paginate(items: List[Dict], page: int, per_page: int = 6):
     end = start + per_page
     return items[start:end], total
 
+# ---------- Checkout (fallback inline) ----------
+def render_checkout_inline(books_map: Dict[str, Dict]):
+    st.markdown("### 🧾 Checkout")
+    st.caption("Revise seus itens e conclua sua compra.")
+    cart = st.session_state.cart
+    if not cart:
+        st.info("Seu carrinho está vazio.")
+        if st.button("Voltar para a loja", use_container_width=True):
+            st.session_state.route = "Loja"
+            st.rerun()
+        return
+
+    # Totais
+    total = sum(i["qty"] * i["price"] for i in cart.values())
+    qtd = sum(i["qty"] for i in cart.values())
+    top_l, top_r = st.columns([3, 1])
+    with top_l:
+        st.markdown(f"**Itens no carrinho:** {qtd}")
+        st.markdown(f"**Atualizado em:** {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+    with top_r:
+        st.metric("Total", money(total))
+
+    st.divider()
+
+    for book_id, item in cart.items():
+        b = books_map.get(book_id, {})
+        c1, c2, c3, c4 = st.columns([6, 2, 2, 2])
+        with c1:
+            st.markdown(f"**{b.get('title','')}**")
+            st.caption(f"{b.get('author','')} • {b.get('genre','')}")
+        with c2:
+            st.markdown("**Preço**")
+            st.write(money(item["price"]))
+        with c3:
+            st.markdown("**Qtd.**")
+            st.write(item["qty"])
+        with c4:
+            st.markdown("**Subtotal**")
+            st.write(money(item["qty"] * item["price"]))
+        st.markdown("---")
+
+    col_ok, col_back = st.columns(2)
+    with col_ok:
+        if st.button("Confirmar compra", type="primary", use_container_width=True):
+            st.success("Pedido confirmado! Obrigado pela compra. 🎉")
+            st.session_state.cart = {}
+    with col_back:
+        if st.button("Voltar para a loja", use_container_width=True):
+            st.session_state.route = "Loja"
+            st.rerun()
+
 # ---------- App ----------
 init_state()
 books = load_books()
 books_map = {b["id"]: b for b in books}
+
+# Se o usuário veio pelo fallback inline do checkout:
+if st.session_state.route == "Checkout":
+    render_checkout_inline(books_map)
+    st.stop()
 
 # Header
 left, right = st.columns([6, 2])
@@ -130,12 +202,14 @@ with right:
 
 # === Assistente de Voz (Convai) ===
 st.divider()
-voice_on = st.toggle("🎙️ Assistente de Voz (Convai)", value=True,
-                     help="Ativa o widget de voz ElevenLabs na própria página")
+voice_on = st.toggle(
+    "🎙️ Assistente de Voz (Convai)",
+    value=True,
+    help="Ativa o widget de voz ElevenLabs na própria página"
+)
 
 if voice_on:
     # Injeta o web component na PÁGINA PRINCIPAL (fora do iframe do Streamlit)
-    # para manter o botão flutuante no canto inferior direito.
     components.html(
         f"""
         <div id="convai-host"></div>
@@ -143,7 +217,6 @@ if voice_on:
           (function() {{
             const PARENT = window.parent && window.parent.document ? window.parent.document : document;
 
-            // Adiciona o script apenas uma vez
             if (!PARENT.getElementById('convai-script')) {{
               const s = PARENT.createElement('script');
               s.id = 'convai-script';
@@ -152,14 +225,10 @@ if voice_on:
               PARENT.head.appendChild(s);
             }}
 
-            // Adiciona o elemento do widget apenas uma vez
             const existing = PARENT.querySelector('elevenlabs-convai[agent-id="agent_7801k2q24b9nfn7tcqpm6gfcep8v"]');
             if (!existing) {{
               const w = PARENT.createElement('elevenlabs-convai');
               w.setAttribute('agent-id', 'agent_7801k2q24b9nfn7tcqpm6gfcep8v');
-              // Ex.: personalizações opcionais:
-              // w.setAttribute('position', 'bottom-right');
-              // w.setAttribute('entrypoint', 'microphone'); // depende das opções do widget
               PARENT.body.appendChild(w);
             }}
           }})();
@@ -210,6 +279,12 @@ elif order == "Mais recentes":
         except Exception:
             return datetime(1970, 1, 1)
     filtered.sort(key=lambda x: parse_date(x["release_date"]), reverse=True)
+
+def paginate(items: List[Dict], page: int, per_page: int = 6):
+    total = len(items)
+    start = (page - 1) * per_page
+    end = start + per_page
+    return items[start:end], total
 
 # Paginação
 per_page = 8 if st.session_state.view_mode == "Grade" else 6
