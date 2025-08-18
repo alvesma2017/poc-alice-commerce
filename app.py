@@ -128,43 +128,45 @@ with right:
     )
     st.session_state.view_mode = "Grade" if toggle_on else "Lista"
 
-# === Assistente de Voz ===
+# === Assistente de Voz (Convai) ===
 st.divider()
-voice_on = st.toggle("🎙️ Assistente de Voz (beta)", value=False, help="Ativa o agente de IA por voz")
+voice_on = st.toggle("🎙️ Assistente de Voz (Convai)", value=True,
+                     help="Ativa o widget de voz ElevenLabs na própria página")
+
 if voice_on:
+    # Injeta o web component na PÁGINA PRINCIPAL (fora do iframe do Streamlit)
+    # para manter o botão flutuante no canto inferior direito.
     components.html(
-        """
-        <iframe
-            src="https://elevenlabs.io/app/talk-to?agent_id=agent_7801k2q24b9nfn7tcqpm6gfcep8v"
-            style="width:100%; height:640px; border:0; border-radius:12px; overflow:hidden;"
-            allow="microphone; autoplay; clipboard-write"
-        ></iframe>
+        f"""
+        <div id="convai-host"></div>
+        <script>
+          (function() {{
+            const PARENT = window.parent && window.parent.document ? window.parent.document : document;
+
+            // Adiciona o script apenas uma vez
+            if (!PARENT.getElementById('convai-script')) {{
+              const s = PARENT.createElement('script');
+              s.id = 'convai-script';
+              s.src = 'https://unpkg.com/@elevenlabs/convai-widget-embed';
+              s.async = true;
+              PARENT.head.appendChild(s);
+            }}
+
+            // Adiciona o elemento do widget apenas uma vez
+            const existing = PARENT.querySelector('elevenlabs-convai[agent-id="agent_7801k2q24b9nfn7tcqpm6gfcep8v"]');
+            if (!existing) {{
+              const w = PARENT.createElement('elevenlabs-convai');
+              w.setAttribute('agent-id', 'agent_7801k2q24b9nfn7tcqpm6gfcep8v');
+              // Ex.: personalizações opcionais:
+              // w.setAttribute('position', 'bottom-right');
+              // w.setAttribute('entrypoint', 'microphone'); // depende das opções do widget
+              PARENT.body.appendChild(w);
+            }}
+          }})();
+        </script>
         """,
-        height=660,
+        height=0,  # não ocupa espaço no layout
     )
-# Botão flutuante (fallback se o iframe for bloqueado por CSP)
-st.markdown(
-    """
-    <a href="https://elevenlabs.io/app/talk-to?agent_id=agent_7801k2q24b9nfn7tcqpm6gfcep8v"
-       target="_blank"
-       style="
-         position: fixed;
-         right: 24px;
-         bottom: 24px;
-         background: #6c5ce7;
-         color: white;
-         padding: 12px 16px;
-         border-radius: 999px;
-         text-decoration: none;
-         font-weight: 600;
-         box-shadow: 0 8px 24px rgba(0,0,0,.2);
-         z-index: 9999;
-       ">
-       🎙️ Falar com a IA
-    </a>
-    """,
-    unsafe_allow_html=True,
-)
 
 # Sidebar - Filtros e Carrinho
 with st.sidebar:
