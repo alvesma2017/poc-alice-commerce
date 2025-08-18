@@ -1,40 +1,127 @@
-import streamlit as st
+# pages/checkout.py
+import json
+import pathlib
 from datetime import datetime
+
+import streamlit as st
+import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Checkout", page_icon="🛒", layout="wide")
 
-# ---------- Helpers ----------
+st.divider()
+voice_on = st.toggle(
+    "🎙️ Assistente de Voz (Convai)",
+    value=True,
+    help="Ativa o widget de voz ElevenLabs na própria página"
+)
+
+if voice_on:
+    # Injeta o web component na PÁGINA PRINCIPAL (fora do iframe do Streamlit)
+    components.html(
+        f"""
+        <div id="convai-host"></div>
+        <script>
+          (function() {{
+            const PARENT = window.parent && window.parent.document ? window.parent.document : document;
+
+            if (!PARENT.getElementById('convai-script')) {{
+              const s = PARENT.createElement('script');
+              s.id = 'convai-script';
+              s.src = 'https://unpkg.com/@elevenlabs/convai-widget-embed';
+              s.async = true;
+              PARENT.head.appendChild(s);
+            }}
+
+            const existing = PARENT.querySelector('elevenlabs-convai[agent-id="agent_7801k2q24b9nfn7tcqpm6gfcep8v"]');
+            if (!existing) {{
+              const w = PARENT.createElement('elevenlabs-convai');
+              w.setAttribute('agent-id', 'agent_3001k2z38ac6ettvagzrv82nm499');
+              PARENT.body.appendChild(w);
+            }}
+          }})();
+        </script>
+        """,
+        height=0,  # não ocupa espaço no layout
+    )
+
+# ========= Helpers =========
+@st.cache_data
+def load_books() -> list[dict]:
+    data_path = pathlib.Path("books.json")
+    if not data_path.exists():
+        return []
+    with open(data_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
 def brl(value: float) -> str:
-    # Formata em R$ sem depender de locale do SO
     s = f"{value:,.2f}"
     s = s.replace(",", "X").replace(".", ",").replace("X", ".")
     return f"R$ {s}"
 
-def get_cart_items():
+def get_cart_items() -> dict:
     """
-    Espera que st.session_state.cart seja um dict assim:
+    Espera que st.session_state.cart seja:
     {
-        "id_do_livro": {
-            "title": "Título",
-            "author": "Autor",
-            "price": 49.9,
-            "qty": 1,
-            "genre": "Suspense",
-            "thumb": "URL opcional da capa"
-        },
-        ...
+        "<book_id>": {"qty": int, "price": float, ...}
+        # (em alguns apps, pode também conter title/author/genre)
     }
     """
     return st.session_state.get("cart", {})
 
-def cart_totals(cart: dict):
-    total_itens = sum(item.get("qty", 1) for item in cart.values())
-    total_valor = sum(item.get("price", 0.0) * item.get("qty", 1) for item in cart.values())
+def cart_totals(cart: dict) -> tuple[int, float]:
+    total_itens = sum(int(item.get("qty", 1)) for item in cart.values())
+    total_valor = sum(float(item.get("price", 0.0)) * int(item.get("qty", 1)) for item in cart.values())
     return total_itens, total_valor
 
-# ---------- Página ----------
+def title_from_maps(book_id: str, cart_item: dict, books_map: dict) -> str:
+    """Resolve o título do livro a partir do carrinho ou do books_map; cai no id se não achar."""
+    # Se seu carrinho já tiver title (ou foi atualizado), use-o
+    t = cart_item.get("title")
+    if t:
+        return str(t)
+    # Caso contrário, busque no catálogo carregado
+    b = books_map.get(book_id)
+    if b and "title" in b:
+        return str(b["title"])
+    # Fallback final: mostra o id
+    return f"Livro ({book_id})"
+
+def author_from_maps(book_id: str, cart_item: dict, books_map: dict) -> str:
+    a = cart_item.get("author")
+    if a:
+        return str(a)
+    b = books_map.get(book_id)
+    if b and "author" in b:
+        return str(b["author"])
+    return ""
+
+def genre_from_maps(book_id: str, cart_item: dict, books_map: dict) -> str:
+    g = cart_item.get("genre")
+    if g:
+        return str(g)
+    b = books_map.get(book_id)
+    if b and "genre" in b:
+        return str(b["genre"])
+    return ""
+
+def cart_titles_markdown(cart: dict, books_map: dict) -> str:
+    """Lista simples com nomes dos livros e quantidades."""
+    if not cart:
+        return "_—_"
+    linhas = []
+    for pid, item in cart.items():
+        titulo = title_from_maps(pid, item, books_map)
+        qty = int(item.get("qty", 1))
+        linhas.append(f"- **{titulo}** _(x{qty})_")
+    return "\n".join(linhas)
+
+# ========= Página =========
 st.markdown("### 🧾 Checkout")
 st.caption("Revise seus itens e conclua sua compra.")
+
+# Carrega catálogo para resolver nomes por id
+books = load_books()
+books_map = {b.get("id"): b for b in books if b.get("id")}
 
 cart = get_cart_items()
 if not cart:
@@ -42,7 +129,6 @@ if not cart:
     col = st.columns([1, 1, 1])[1]
     with col:
         if st.button("Voltar para a loja", use_container_width=True):
-            # Volta para a página principal
             try:
                 st.switch_page("app.py")
             except Exception:
@@ -50,7 +136,7 @@ if not cart:
                 st.rerun()
     st.stop()
 
-# Cabeçalho com totals
+# Cabeçalho com totais
 total_itens, total_valor = cart_totals(cart)
 top_l, top_r = st.columns([3, 1])
 with top_l:
@@ -61,11 +147,17 @@ with top_r:
 
 st.divider()
 
-# Lista de itens (estilo “cards” simples)
+# Lista explícita dos nomes dos livros
+st.subheader("📚 Livros no carrinho")
+st.markdown(cart_titles_markdown(cart, books_map))
+
+st.divider()
+
+# Lista detalhada (cards)
 for pid, item in cart.items():
-    title = item.get("title", "Livro")
-    author = item.get("author", "")
-    genre = item.get("genre", "")
+    title = title_from_maps(pid, item, books_map)
+    author = author_from_maps(pid, item, books_map)
+    genre = genre_from_maps(pid, item, books_map)
     price = float(item.get("price", 0.0))
     qty = int(item.get("qty", 1))
     subtotal = price * qty
@@ -89,7 +181,7 @@ for pid, item in cart.items():
 
     st.markdown("---")
 
-# Resumo final
+# Resumo final e ações
 sum_l, sum_r = st.columns([2, 1])
 with sum_l:
     st.subheader("Resumo do pedido")
@@ -101,9 +193,7 @@ with sum_r:
     confirm = st.button("Confirmar compra", type="primary", use_container_width=True)
     back = st.button("Voltar para a loja", use_container_width=True)
     if confirm:
-        # Aqui você pode integrar seu provedor de pagamento
         st.success("Pedido confirmado! Obrigado pela compra. 🎉")
-        # Opcional: limpar carrinho
         st.session_state.cart = {}
     elif back:
         try:
