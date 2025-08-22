@@ -8,41 +8,7 @@ import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Checkout", page_icon="🛒", layout="wide")
 
-st.divider()
-voice_on = st.toggle(
-    "🎙️ Assistente de Voz (Convai)",
-    value=True,
-    help="Ativa o widget de voz ElevenLabs na própria página"
-)
 
-if voice_on:
-    # Injeta o web component na PÁGINA PRINCIPAL (fora do iframe do Streamlit)
-    components.html(
-        f"""
-        <div id="convai-host"></div>
-        <script>
-          (function() {{
-            const PARENT = window.parent && window.parent.document ? window.parent.document : document;
-
-            if (!PARENT.getElementById('convai-script')) {{
-              const s = PARENT.createElement('script');
-              s.id = 'convai-script';
-              s.src = 'https://unpkg.com/@elevenlabs/convai-widget-embed';
-              s.async = true;
-              PARENT.head.appendChild(s);
-            }}
-
-            const existing = PARENT.querySelector('elevenlabs-convai[agent-id="agent_7801k2q24b9nfn7tcqpm6gfcep8v"]');
-            if (!existing) {{
-              const w = PARENT.createElement('elevenlabs-convai');
-              w.setAttribute('agent-id', 'agent_3001k2z38ac6ettvagzrv82nm499');
-              PARENT.body.appendChild(w);
-            }}
-          }})();
-        </script>
-        """,
-        height=0,  # não ocupa espaço no layout
-    )
 
 # ========= Helpers =========
 @st.cache_data
