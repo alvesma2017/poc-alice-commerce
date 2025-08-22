@@ -32,7 +32,7 @@ def load_books() -> List[Dict]:
         return json.load(f)
 
 def money(v: float) -> str:
-    return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return f"€ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 def add_to_cart(book_id: str, price: float):
     cart = st.session_state.cart
@@ -245,7 +245,7 @@ with st.sidebar:
     authors = sorted({b["author"] for b in books}) if books else []
     gsel = st.multiselect("Gênero", genres)
     asel = st.multiselect("Autor", authors)
-    price_min, price_max = st.slider("Preço (R$)", 0.0, 300.0, (0.0, 300.0), step=10.0)
+    price_min, price_max = st.slider("Preço (€)", 0.0, 300.0, (0.0, 300.0), step=10.0)
     order = st.selectbox("Ordenar por", ["Relevância", "Preço ↑", "Preço ↓", "Avaliação ↓", "Mais recentes"])
     st.divider()
     st.header("🛒 Carrinho")
