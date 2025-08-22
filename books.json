@@ -8,7 +8,7 @@
     "format": "Ebook",
     "language": "Português",
     "rating": 4.6,
-    "price": 49.9,
+    "price": "€49.9",
     "stock": 999,
     "image": "img/grisham-opostos.jpg"
   },
@@ -21,7 +21,7 @@
     "format": "Ebook",
     "language": "Português",
     "rating": 4.4,
-    "price": 39.9,
+    "price": "€39.9",
     "stock": 999,
     "image": "img/daniel-silva-retrato.jpg"
   },
@@ -34,7 +34,7 @@
     "format": "Ebook",
     "language": "Português",
     "rating": 4.7,
-    "price": 34.9,
+    "price": "€34.9",
     "stock": 999,
     "image": "img/gamache-3.jpg"
   },
@@ -47,7 +47,7 @@
     "format": "Ebook",
     "language": "Português",
     "rating": 4.6,
-    "price": 34.9,
+    "price": "€34.9",
     "stock": 999,
     "image": "img/gamache-2.jpg"
   },
@@ -60,7 +60,7 @@
     "format": "Ebook",
     "language": "Português",
     "rating": 4.5,
-    "price": 29.9,
+    "price": "€29.9",
     "stock": 999,
     "image": "img/gamache-1.jpg"
   }
