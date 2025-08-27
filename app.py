@@ -68,7 +68,7 @@ def cart_summary(books_map: Dict[str, Dict]):
     if st.session_state.cart:
         for book_id, item in st.session_state.cart.items():
             b = books_map.get(book_id, {})
-            col1, col2, col3 = st.columns([6, 2, 2])
+            col1, col2, col3, col4, col5 = st.columns([6, 2, 2, 2, 2])
             with col1:
                 st.caption(b.get("author", ""))
                 st.write(f"**{b.get('title', '')}**")
@@ -210,28 +210,92 @@ voice_on = st.toggle(
 
 if voice_on:
     # Injeta o web component na PÁGINA PRINCIPAL (fora do iframe do Streamlit)
+    # HACK: esconde o "Powered by..." procurando o texto dentro do shadow DOM do widget.
     components.html(
-        f"""
+        """
         <div id="convai-host"></div>
         <script>
-          (function() {{
-            const PARENT = window.parent && window.parent.document ? window.parent.document : document;
+          (function () {
+            const AGENT_ID = "agent_4001k38yrkrgeext4c508jdv0vyv";
+            const PARENT = (window.parent && window.parent.document) ? window.parent.document : document;
 
-            if (!PARENT.getElementById('convai-script')) {{
-              const s = PARENT.createElement('script');
-              s.id = 'convai-script';
-              s.src = 'https://unpkg.com/@elevenlabs/convai-widget-embed';
+            // 1) Carrega o script apenas uma vez
+            if (!PARENT.getElementById("convai-script")) {
+              const s = PARENT.createElement("script");
+              s.id = "convai-script";
+              s.src = "https://unpkg.com/@elevenlabs/convai-widget-embed";
               s.async = true;
               PARENT.head.appendChild(s);
-            }}
+            }
 
-            const existing = PARENT.querySelector('elevenlabs-convai[agent-id="agent_7801k2q24b9nfn7tcqpm6gfcep8v"]');
-            if (!existing) {{
-              const w = PARENT.createElement('elevenlabs-convai');
-              w.setAttribute('agent-id', 'agent_4001k38yrkrgeext4c508jdv0vyv');
+            // 2) Garante um único widget
+            let w = PARENT.querySelector(`elevenlabs-convai[agent-id="${AGENT_ID}"]`);
+            if (!w) {
+              w = PARENT.createElement("elevenlabs-convai");
+              w.setAttribute("agent-id", AGENT_ID);
               PARENT.body.appendChild(w);
-            }}
-          }})();
+            }
+
+            // 3) HACK: tenta ocultar o rodapé "Powered by ..."
+            function hidePoweredByIn(root) {
+              if (!root) return;
+              try {
+                // Procura por elementos cujo texto contenha "Powered by" e/ou "ElevenLabs"
+                const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, null);
+                let node;
+                while ((node = walker.nextNode())) {
+                  try {
+                    const txt = (node.textContent || "").toLowerCase();
+                    if (txt.includes("powered by") && (txt.includes("elevenlabs") || txt.includes("conversational ai"))) {
+                      node.style.setProperty("display", "none", "important");
+                    }
+                  } catch(e) {}
+                }
+              } catch(e) {}
+            }
+
+            function deepHide() {
+              // No documento principal
+              hidePoweredByIn(PARENT);
+
+              // Dentro do shadowRoot do widget, se existir
+              const widget = PARENT.querySelector(`elevenlabs-convai[agent-id="${AGENT_ID}"]`);
+              if (widget && widget.shadowRoot) {
+                hidePoweredByIn(widget.shadowRoot);
+                // Alguns elementos podem estar aninhados; faz nova varredura
+                try {
+                  const innerHosts = widget.shadowRoot.querySelectorAll("*");
+                  innerHosts.forEach(el => {
+                    if (el.shadowRoot) hidePoweredByIn(el.shadowRoot);
+                  });
+                } catch (e) {}
+              }
+            }
+
+            // 4) Tenta várias vezes (o script pode renderizar após carregamento)
+            const attempts = 40;        // ~8s (40 * 200ms)
+            let count = 0;
+            const iv = setInterval(() => {
+              deepHide();
+              if (++count >= attempts) clearInterval(iv);
+            }, 200);
+
+            // 5) Observa mudanças futuras e esconde novamente
+            const mo = new MutationObserver(() => deepHide());
+            mo.observe(PARENT.documentElement, { childList: true, subtree: true });
+
+            // Se o widget tiver shadowRoot depois, observa lá também
+            const watchShadow = setInterval(() => {
+              const widget = PARENT.querySelector(`elevenlabs-convai[agent-id="${AGENT_ID}"]`);
+              if (widget && widget.shadowRoot) {
+                try {
+                  const mo2 = new MutationObserver(() => deepHide());
+                  mo2.observe(widget.shadowRoot, { childList: true, subtree: true });
+                } catch(e) {}
+                clearInterval(watchShadow);
+              }
+            }, 300);
+          })();
         </script>
         """,
         height=0,  # não ocupa espaço no layout
