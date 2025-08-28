@@ -6,6 +6,9 @@ from typing import List, Dict
 
 st.set_page_config(page_title="Loja de Livros", page_icon="📚", layout="wide")
 
+# >>> URL da sua Lambda (já com o agent na rota)
+AGENT_URL = "https://7qm3m2csggpkr2jzvcf4fvzpfq0vmgak.lambda-url.us-east-1.on.aws/agent/agent_4001k38yrkrgeext4c508jdv0vyv"
+
 # ---------- Helpers ----------
 def init_state():
     # view_mode: "Lista" | "Grade"
@@ -109,7 +112,7 @@ def book_card(b: Dict, in_list=True):
                 st.write("Imediata" if b.get("format") == "Ebook" else "3-7 dias úteis")
             with c5:
                 st.caption("")
-                st.button("Adicionar", key=f"add_{b['id']}", on_click=add_to_cart, args=(b["id"], b["price"]))
+                st.button("Adicionar", key=f"add_{b['id']}", on_click=add_to_cart, args=(b['id'], b['price']))
         else:
             # Grade
             st.image(b["image"], use_column_width=True)
@@ -117,7 +120,7 @@ def book_card(b: Dict, in_list=True):
             st.caption(f"{b['author']}")
             st.caption(f"⭐ {b['rating']} • {b['genre']}")
             st.write(money(b["price"]))
-            st.button("Adicionar", key=f"add_grid_{b['id']}", on_click=add_to_cart, args=(b["id"], b["price"]))
+            st.button("Adicionar", key=f"add_grid_{b['id']}", on_click=add_to_cart, args=(b['id'], b['price']))
 
 def paginate(items: List[Dict], page: int, per_page: int = 6):
     total = len(items)
@@ -200,106 +203,65 @@ with right:
     )
     st.session_state.view_mode = "Grade" if toggle_on else "Lista"
 
-# === Assistente de Voz (Convai) ===
-st.divider()
-voice_on = st.toggle(
-    "🎙️ Assistente de Voz (Convai)",
-    value=True,
-    help="Ativa o widget de voz ElevenLabs na própria página"
+# === FAB do Assistente (sempre visível, canto inferior direito) ===
+# Importante: criamos o container no documento PAI (window.parent.document), fora do iframe do componente.
+components.html(
+    f"""
+    <script>
+      (function() {{
+        const PARENT = (window.parent && window.parent.document) ? window.parent.document : document;
+        const ID = "convai-fab-container";
+        const URL = "{AGENT_URL}";
+
+        // remove antigo (se houver) para evitar duplicação em reruns do Streamlit
+        const old = PARENT.getElementById(ID);
+        if (old && old.parentNode) old.parentNode.removeChild(old);
+
+        // cria container fixo no canto inferior direito
+        const wrap = PARENT.createElement("div");
+        wrap.id = ID;
+        wrap.style.position = "fixed";
+        wrap.style.right = "16px";
+        wrap.style.bottom = "16px";
+        wrap.style.zIndex = "2147483647"; // sempre no topo
+        wrap.style.display = "flex";
+        wrap.style.justifyContent = "flex-end";
+        wrap.style.alignItems = "flex-end";
+        // pointer-events padrão (auto) para permitir cliques no iframe
+
+        // iframe que carrega a sua Lambda (widget)
+        const ifr = PARENT.createElement("iframe");
+        ifr.src = URL;
+        ifr.title = "Convai Widget";
+        ifr.allow = "microphone; autoplay; clipboard-read; clipboard-write";
+        ifr.style.width = "395px";
+        ifr.style.height = "150px";
+        ifr.style.border = "none";
+        ifr.style.borderRadius = "12px";
+        ifr.style.overflow = "hidden";
+        ifr.style.boxShadow = "0 10px 24px rgba(0,0,0,0.22)";
+        ifr.setAttribute("referrerpolicy", "no-referrer");
+        wrap.appendChild(ifr);
+
+        // responsivo (mobile)
+        const style = PARENT.createElement("style");
+        style.textContent = `
+          @media (max-width: 640px) {{
+            #${{ID}} iframe {{
+              width: 92vw !important;
+              height: 150px !important;
+            }}
+          }}
+        `;
+        PARENT.head.appendChild(style);
+
+        // injeta no body do documento pai
+        PARENT.body.appendChild(wrap);
+      }})();
+    </script>
+    """,
+    height=0,  # não ocupa espaço no layout do Streamlit
 )
-
-if voice_on:
-    # Injeta o web component na PÁGINA PRINCIPAL (fora do iframe do Streamlit)
-    # HACK: esconde o "Powered by..." procurando o texto dentro do shadow DOM do widget.
-    components.html(
-        """
-        <div id="convai-host"></div>
-        <script>
-          (function () {
-            const AGENT_ID = "agent_4001k38yrkrgeext4c508jdv0vyv";
-            const PARENT = (window.parent && window.parent.document) ? window.parent.document : document;
-
-            // 1) Carrega o script apenas uma vez
-            if (!PARENT.getElementById("convai-script")) {
-              const s = PARENT.createElement("script");
-              s.id = "convai-script";
-              s.src = "https://unpkg.com/@elevenlabs/convai-widget-embed";
-              s.async = true;
-              PARENT.head.appendChild(s);
-            }
-
-            // 2) Garante um único widget
-            let w = PARENT.querySelector(`elevenlabs-convai[agent-id="${AGENT_ID}"]`);
-            if (!w) {
-              w = PARENT.createElement("elevenlabs-convai");
-              w.setAttribute("agent-id", AGENT_ID);
-              PARENT.body.appendChild(w);
-            }
-
-            // 3) HACK: tenta ocultar o rodapé "Powered by ..."
-            function hidePoweredByIn(root) {
-              if (!root) return;
-              try {
-                // Procura por elementos cujo texto contenha "Powered by" e/ou "ElevenLabs"
-                const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, null);
-                let node;
-                while ((node = walker.nextNode())) {
-                  try {
-                    const txt = (node.textContent || "").toLowerCase();
-                    if (txt.includes("powered by") && (txt.includes("elevenlabs") || txt.includes("conversational ai"))) {
-                      node.style.setProperty("display", "none", "important");
-                    }
-                  } catch(e) {}
-                }
-              } catch(e) {}
-            }
-
-            function deepHide() {
-              // No documento principal
-              hidePoweredByIn(PARENT);
-
-              // Dentro do shadowRoot do widget, se existir
-              const widget = PARENT.querySelector(`elevenlabs-convai[agent-id="${AGENT_ID}"]`);
-              if (widget && widget.shadowRoot) {
-                hidePoweredByIn(widget.shadowRoot);
-                // Alguns elementos podem estar aninhados; faz nova varredura
-                try {
-                  const innerHosts = widget.shadowRoot.querySelectorAll("*");
-                  innerHosts.forEach(el => {
-                    if (el.shadowRoot) hidePoweredByIn(el.shadowRoot);
-                  });
-                } catch (e) {}
-              }
-            }
-
-            // 4) Tenta várias vezes (o script pode renderizar após carregamento)
-            const attempts = 40;        // ~8s (40 * 200ms)
-            let count = 0;
-            const iv = setInterval(() => {
-              deepHide();
-              if (++count >= attempts) clearInterval(iv);
-            }, 200);
-
-            // 5) Observa mudanças futuras e esconde novamente
-            const mo = new MutationObserver(() => deepHide());
-            mo.observe(PARENT.documentElement, { childList: true, subtree: true });
-
-            // Se o widget tiver shadowRoot depois, observa lá também
-            const watchShadow = setInterval(() => {
-              const widget = PARENT.querySelector(`elevenlabs-convai[agent-id="${AGENT_ID}"]`);
-              if (widget && widget.shadowRoot) {
-                try {
-                  const mo2 = new MutationObserver(() => deepHide());
-                  mo2.observe(widget.shadowRoot, { childList: true, subtree: true });
-                } catch(e) {}
-                clearInterval(watchShadow);
-              }
-            }, 300);
-          })();
-        </script>
-        """,
-        height=0,  # não ocupa espaço no layout
-    )
 
 # Sidebar - Filtros e Carrinho
 with st.sidebar:

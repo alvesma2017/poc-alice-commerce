@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Widget ElevenLabs</title>
+  </head>
+  <body>
+    <elevenlabs-convai agent-id="agent_4001k38yrkrgeext4c508jdv0vyv"></elevenlabs-convai>
+    <script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
+
+    <script>
+      function hidePoweredBy() {
+        const widget = document.querySelector("elevenlabs-convai");
+        if (!widget || !widget.shadowRoot) return;
+
+        // tenta achar qualquer rodapé que contenha "powered"
+        const candidates = widget.shadowRoot.querySelectorAll("*");
+        candidates.forEach(el => {
+          if (el.textContent?.toLowerCase().includes("powered by")) {
+            el.style.display = "none";
+            el.style.visibility = "hidden";
+          }
+        });
+      }
+
+      // roda a cada 1s nos primeiros 15s
+      const interval = setInterval(hidePoweredBy, 1000);
+      setTimeout(() => clearInterval(interval), 15000);
+
+      // observa mudanças no shadowRoot em tempo real
+      const widget = document.querySelector("elevenlabs-convai");
+      if (widget) {
+        const obs = new MutationObserver(hidePoweredBy);
+        obs.observe(widget, { childList: true, subtree: true });
+      }
+    </script>
+  </body>
+</html>
