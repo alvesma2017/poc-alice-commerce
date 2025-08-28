@@ -9,6 +9,67 @@ st.set_page_config(page_title="Loja de Livros", page_icon="📚", layout="wide")
 # >>> URL da sua Lambda (já com o agent na rota)
 AGENT_URL = "https://7qm3m2csggpkr2jzvcf4fvzpfq0vmgak.lambda-url.us-east-1.on.aws/agent/agent_4001k38yrkrgeext4c508jdv0vyv"
 
+
+# === FAB do Assistente (sempre visível, canto inferior direito) ===
+# Importante: criamos o container no documento PAI (window.parent.document), fora do iframe do componente.
+components.html(
+    f"""
+    <script>
+      (function() {{
+        const PARENT = (window.parent && window.parent.document) ? window.parent.document : document;
+        const ID = "convai-fab-container";
+        const URL = "{AGENT_URL}";
+
+        // remove antigo (se houver) para evitar duplicação em reruns do Streamlit
+        const old = PARENT.getElementById(ID);
+        if (old && old.parentNode) old.parentNode.removeChild(old);
+
+        // cria container fixo no canto inferior direito
+        const wrap = PARENT.createElement("div");
+        wrap.id = ID;
+        wrap.style.position = "fixed";
+        wrap.style.right = "16px";
+        wrap.style.bottom = "16px";
+        wrap.style.zIndex = "2147483647"; // sempre no topo
+        wrap.style.display = "flex";
+        wrap.style.justifyContent = "flex-end";
+        wrap.style.alignItems = "flex-end";
+        // pointer-events padrão (auto) para permitir cliques no iframe
+
+        // iframe que carrega a sua Lambda (widget)
+        const ifr = PARENT.createElement("iframe");
+        ifr.src = URL;
+        ifr.title = "Convai Widget";
+        ifr.allow = "microphone; autoplay; clipboard-read; clipboard-write";
+        ifr.style.width = "395px";
+        ifr.style.height = "150px";
+        ifr.style.border = "none";
+        ifr.style.borderRadius = "12px";
+        ifr.style.overflow = "hidden";
+        ifr.style.boxShadow = "0 10px 24px rgba(0,0,0,0.22)";
+        ifr.setAttribute("referrerpolicy", "no-referrer");
+        wrap.appendChild(ifr);
+
+        // responsivo (mobile)
+        const style = PARENT.createElement("style");
+        style.textContent = `
+          @media (max-width: 640px) {{
+            #${{ID}} iframe {{
+              width: 92vw !important;
+              height: 150px !important;
+            }}
+          }}
+        `;
+        PARENT.head.appendChild(style);
+
+        // injeta no body do documento pai
+        PARENT.body.appendChild(wrap);
+      }})();
+    </script>
+    """,
+    height=0,  # não ocupa espaço no layout do Streamlit
+)
+
 # ---------- Helpers ----------
 def init_state():
     # view_mode: "Lista" | "Grade"
@@ -203,65 +264,7 @@ with right:
     )
     st.session_state.view_mode = "Grade" if toggle_on else "Lista"
 
-# === FAB do Assistente (sempre visível, canto inferior direito) ===
-# Importante: criamos o container no documento PAI (window.parent.document), fora do iframe do componente.
-components.html(
-    f"""
-    <script>
-      (function() {{
-        const PARENT = (window.parent && window.parent.document) ? window.parent.document : document;
-        const ID = "convai-fab-container";
-        const URL = "{AGENT_URL}";
 
-        // remove antigo (se houver) para evitar duplicação em reruns do Streamlit
-        const old = PARENT.getElementById(ID);
-        if (old && old.parentNode) old.parentNode.removeChild(old);
-
-        // cria container fixo no canto inferior direito
-        const wrap = PARENT.createElement("div");
-        wrap.id = ID;
-        wrap.style.position = "fixed";
-        wrap.style.right = "16px";
-        wrap.style.bottom = "16px";
-        wrap.style.zIndex = "2147483647"; // sempre no topo
-        wrap.style.display = "flex";
-        wrap.style.justifyContent = "flex-end";
-        wrap.style.alignItems = "flex-end";
-        // pointer-events padrão (auto) para permitir cliques no iframe
-
-        // iframe que carrega a sua Lambda (widget)
-        const ifr = PARENT.createElement("iframe");
-        ifr.src = URL;
-        ifr.title = "Convai Widget";
-        ifr.allow = "microphone; autoplay; clipboard-read; clipboard-write";
-        ifr.style.width = "395px";
-        ifr.style.height = "150px";
-        ifr.style.border = "none";
-        ifr.style.borderRadius = "12px";
-        ifr.style.overflow = "hidden";
-        ifr.style.boxShadow = "0 10px 24px rgba(0,0,0,0.22)";
-        ifr.setAttribute("referrerpolicy", "no-referrer");
-        wrap.appendChild(ifr);
-
-        // responsivo (mobile)
-        const style = PARENT.createElement("style");
-        style.textContent = `
-          @media (max-width: 640px) {{
-            #${{ID}} iframe {{
-              width: 92vw !important;
-              height: 150px !important;
-            }}
-          }}
-        `;
-        PARENT.head.appendChild(style);
-
-        // injeta no body do documento pai
-        PARENT.body.appendChild(wrap);
-      }})();
-    </script>
-    """,
-    height=0,  # não ocupa espaço no layout do Streamlit
-)
 
 # Sidebar - Filtros e Carrinho
 with st.sidebar:
